@@ -1,0 +1,49 @@
+<html>
+<head>
+<script src="../curl/src/curl.js" ></script>
+<script>
+
+curl(
+	{
+		baseUrl: '../',
+		paths: {
+			less: 'less-amd-test/less/dist/less-1.3.0'
+		},
+		packages: [
+			{ name: 'curl', location: 'curl/src/curl', main: 'curl' }
+		]
+	},
+	['less', 'text!less-amd-test/less/test/css/colors.css'],
+	function (less, colors) {
+		var parser = less.Parser();
+		parser.parse(colors, function (error, root) {
+			if (!error) {
+				createStyleElement(root.toCSS());
+			}
+			else {
+				console.log(error);
+			}
+		});
+	}
+);
+
+function createStyleElement (cssText) {
+	var doc, head, el;
+	doc = document;
+	head = doc.head || doc.getElementsByTagName('head')[0];
+	el = doc.createStyleSheet ? doc.createStyleSheet() :
+		head.appendChild(doc.createElement('style'));
+	if ('cssText' in el) {
+		el.cssText = cssText;
+	}
+	else {
+		el.appendChild(doc.createTextNode(cssText));
+	}
+}
+
+</script>
+</head>
+<body>
+<div class="test lightenblue">this is a test element</div>
+</body>
+</html>
