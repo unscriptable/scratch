@@ -1,0 +1,28 @@
+<html>
+<head>
+<script src="../curl/src/curl.js" ></script>
+<script>
+
+curl(
+	{
+		baseUrl: '../',
+		packages: [
+			{ name: 'curl', location: 'curl/src/curl', main: 'curl' },
+			{ name: 'wire', location: 'wire', main: 'wire' },
+			{ name: 'when', location: 'when', main: 'when' },
+			{ name: 'aop', location: 'aop', main: 'aop' },
+			{ name: 'poly', location: 'poly', main: 'poly' }
+		],
+		preloads: [
+			'poly/all'
+		]
+	},
+	['wire!wire-oocss/spec']
+);
+
+</script>
+</head>
+<body>
+<div class="test">this is a test element</div>
+</body>
+</html>
