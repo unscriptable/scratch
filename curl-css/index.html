@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="../curl/src/curl.js" ></script>
+<script>
+
+curl(
+	{
+		baseUrl: '../',
+		packages: [
+			{ name: 'curl', location: 'curl/src/curl', main: 'curl' },
+			{ name: 'wire', location: 'wire', main: 'wire' },
+			{ name: 'when', location: 'when', main: 'when' },
+			{ name: 'aop', location: 'aop', main: 'aop' },
+			{ name: 'poly', location: 'poly', main: 'poly' }
+//		],
+//		preloads: [
+//			'poly!poly/array',
+//			'poly!poly/function',
+//			'poly!poly/string'
+		]
+	},
+	[/*'css!non-existant.css'*/],
+	function (WAT) {
+		//log({ succeeded: 'succeeded' });
+	}, function () {
+		//log({ failed: 'failed' });
+	}
+);
+</script>
+</head>
+<body>
+sample text
+
+<script>
+var sheets, sheet, prev;
+sheets = [
+	{ url: 'local.css' },
+	{ url: 'http://ajax.googleapis.com/ajax/libs/dojo/1.6/dojo/resources/dojo.css' },
+	{ url: 'does-not-exist.css' }
+];
+
+function waitThenLog (info) {
+	setTimeout(function () {
+		info.later = tryInsert(info);
+		log(info);
+//		if (prev) {
+//			var diff = {};
+//			for (var p in info.link.styleSheet) {
+//				if (prev.link.styleSheet[p] != info.link.styleSheet[p]) {
+//					diff['info: ' + p] = info.link.styleSheet[p];
+//					diff['prev: ' + p] = prev.link.styleSheet[p];
+//				}
+//			}
+//			log(diff);
+//		}
+//		prev = info;
+	}, 1000);
+}
+
+if (typeof console == 'undefined') console = { log: function () {} };
+
+function tryInsert (info) {
+	var sheet, method;
+	try {
+		if (info.link.readyState && info.link.readyState != 'complete') {
+			return "not yet complete";
+		}
+		else if (info.link.styleSheet) {
+			// IE
+			var sheet = info.link.styleSheet;
+			sheet.addRule('.foo', 'display:none;', 0);
+			if (sheet.rules[0].selectorText != '.foo') return "not manipulated";
+			return "complete";
+		}
+		else {
+			sheet = info.link.sheet;
+			if (!sheet.cssRules) throw new Error("cssRules is null"); // should throw security error in FF xdomain
+			sheet.insertRule('.foo {}', 0);
+			return true;
+		}
+	} catch (ex) {
+		console.log(ex);
+		return ex.message;
+	}
+}
+
+function log (info) {
+	var output = '';
+	for (var i in info) {
+		output += i + ' = ' + info[i] + '<br/>';
+	}
+	output += '*****<br/>';
+	document.body.appendChild(document.createElement('div')).innerHTML = output;
+}
+
+while ((sheet = sheets.shift())) (function (info) {
+	var link = info.link = document.createElement('link');
+//	info.rel = tryInsert(info);
+	link.type = 'text/css';
+	link.rel = 'stylesheet';
+	link.onreadystatechange = function (e) { console.log('orsc', info.link.readyState, info.url);
+		if (!info.readystates) info.readystates = '';
+		info.readystates += this.readyState + ' ';
+		info.onreadystatechange = tryInsert(info);
+	};
+	link.onload = function (e) { console.log('load', info.url); info.load = tryInsert(info); };
+	link.onabort = link.onended = link.oninvalid = link.onloadeddata = link.onloadend = link.onprogress = link.onstalled = link.onerror = function (e) { log(window.event); info.error = true; };
+	link.href = info.url;
+	info.href = tryInsert(info);
+	(document.head || document.getElementsByTagName('head')[0]).appendChild(link);
+	info.insert = tryInsert(info);
+	// also check in a few seconds:
+	waitThenLog(info);
+}(sheet));
+</script>
+</body>
+</html>
