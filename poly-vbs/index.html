@@ -1,0 +1,58 @@
+<!--<!DOCTYPE html>-->
+<html>
+<head>
+<script type="text/vbscript" >
+If Window Is IDispatchEx Then MsgBox "idispatchex" Else MsgBox "dang" End If
+</script>
+<script src="test.vbs" type="text/vbscript" ></script>
+</head>
+<body>
+nuthin to see here
+</body>
+<script type="text/javascript">
+
+
+
+write(typeof getUgly != 'undefined' ? 'this is very ugly' : 'no ugly here');
+write('typeof getUgly == ' + typeof getUgly);
+
+var rockin = {};
+
+rockin.ugly = getUgly();
+//rockin.foo = getUgly().foo;
+
+write('rockin.ugly = ' + rockin.ugly);
+write('rockin.ugly = ' + typeof rockin.ugly);
+write('Object.prototype.toString.call(rockin.ugly) = ' + Object.prototype.toString.call(rockin.ugly));
+write('rockin.ugly.foo = ' + typeof rockin.ugly.foo);
+
+alert(1);
+rockin.ugly = false;
+delete rockin.ugly;
+CollectGarbage();
+alert(2);
+
+//function Chimera () {}
+//Chimera.prototype = getUgly();
+var ugly = getUgly(); //new Chimera();
+//ugly.onEnd = { cb: function () {
+//	write('ugly terminated');
+//} };
+setUglyCallback(ugly, { cb: function () {
+	write('ugly terminated');
+} });
+
+write('ugly created: typeof ' + typeof ugly);
+write('ugly created: Object.prototype.toString ' + Object.prototype.toString.call(ugly));
+write('ugly foo property: ' + typeof ugly.foo);
+
+alert(1);
+ugly = null;
+alert(2);
+
+function write (msg) {
+	document.body.appendChild(document.createElement('div')).innerHTML = msg;
+}
+
+</script>
+</html>

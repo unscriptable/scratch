@@ -1,0 +1,27 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <script type="text/javascript">
+    curl = {
+      packages: {
+        'jquery': {
+        path:'http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/',
+        main:'jquery.min'
+      },
+    }
+  };
+
+  </script>
+
+  <!--<script src="https://raw.github.com/cujojs/curl/master/src/curl.js"></script>-->
+  <script src="../curl/src/curl.js"></script>
+
+  <script>
+    curl(['jquery'], function($){
+      console.log($);
+    })
+  </script>
+</head>
+<body>
+</body>
+</html>

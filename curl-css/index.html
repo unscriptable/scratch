@@ -105,7 +105,7 @@ while ((sheet = sheets.shift())) (function (info) {
 		info.onreadystatechange = tryInsert(info);
 	};
 	link.onload = function (e) { console.log('load', info.url); info.load = tryInsert(info); };
-	link.onabort = link.onended = link.oninvalid = link.onloadeddata = link.onloadend = link.onprogress = link.onstalled = link.onerror = function (e) { log(window.event); info.error = true; };
+	link.onabort = link.onended = link.oninvalid = link.onloadeddata = link.onloadend = link.onprogress = link.onstalled = link.onerror = function (e) { console.log('error', info.url); log(window.event); info.error = true; };
 	link.href = info.url;
 	info.href = tryInsert(info);
 	(document.head || document.getElementsByTagName('head')[0]).appendChild(link);
