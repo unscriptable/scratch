@@ -1,7 +1,34 @@
 (function (define) {
 define(function (require) {
 
-	var parser = require('./parser');
+	/***** imports ******/
+
+	var amd, fastForward, js, parser, subParser, exit, resume, countdown;
+
+	amd = require('./parser/amd');
+
+	fastForward = require('./parser/fastForward');
+	js = require('./descriptor/javascript');
+	parser = require('./parser');
+
+	subParser = parser.subParser;
+	exit = parser.exit;
+	resume = parser.resume;
+	countdown = parser.counter;
+
+	/***** info collected in scanned file *****/
+
+	var info, module;
+
+	/*
+		module.id, // module id, if any
+		module.depList, // AMD dependencies specified in define()
+		module.argList, // arguments passed to factory function (if any)
+		module.requires, // id, pos, and length of r-val requires
+		module.factory, // true if there is a factory function
+		module.pos, // position of `define(...)`
+		module.count // size of `define(...)` signature up to factory body
+	 */
 
 	/**
 	 * Scans an AMD file, looking for modules.
@@ -9,75 +36,29 @@ define(function (require) {
 	 * @returns {Array} array of module descriptors.
 	 */
 	function scanAmd (source) {
-		// TODO
-	}
+		var amdParser = amd.global;
 
+
+
+		info = {
+			modules: [],
+			warnings: [],
+			infos: []
+		};
+		module = null;
+		parseGlobal(source);
+		return info;
+	}
 
 	/***** common regexps *****/
 
-	var quoteRx, dblQuoteRx, bCommentRx, lCommentRx, regexpRx, backslashRx;
+	var removeCommentsRx, cleanDepsRx, splitArgsRx;
 
-	// quotes, but not escaped quotes
-	quoteRx = /(')/;
-	dblQuoteRx = /(")/;
-
-	// block and line comments
-	bCommentRx = /(\/\*)/;
-	lCommentRx = /(\/{2})/;
-
-	// regexp literals. To disambiguate division sign, check for leading
-	// operators and a second slash on the same line.  This seems hairy. D:
-	// TODO: count braces and parens that are captured here (use aop to decorate actions?)
-	regexpRx = /([+\-*\/=,;%&|^!(\[\{<>])\s*(\/[^\/\n\r]+)/;
-
-	backslashRx = /\\\\/;
-
-
-	/***** skippers *****/
-
-	var skipToEndQuote, skipToEndDblQuote, skipToEndBComment, skipToEndLComment,
-		skipRegExp;
-
-	skipToEndQuote = earlyEndingSkipper('\'', parser([
-		// exit this parser when we hit an unescaped quote
-		{ rx: /[^\\]'/, action: parser.exit },
-		// ignore double-backslashes
-		{ rx: backslashRx, action: parser.resume }
-	]));
-
-	skipToEndDblQuote = earlyEndingSkipper('"', parser([
-		// exit this parser when we hit an unescaped double quote
-		{ rx: /[^\\]"/, action: parser.exit },
-		// ignore double-backslashes
-		{ rx: backslashRx, action: parser.resume }
-	]));
-
-	skipToEndBComment = parser([
-		{ rx: /\*\//, action: parser.exit }
-	]);
-
-	skipToEndLComment = parser([
-		{ rx: /\n|\r|$/, action: parser.exit }
-	]);
-
-	skipRegExp = earlyEndingSkipper('/', parser([
-		// look for unescaped slashes
-		{ rx: /[^\\]\//, action: parser.exit },
-		// ignore double-backslashes
-		{ rx: backslashRx, action: parser.resume }
-	]));
-
-	function earlyEndingSkipper (earlyEnding, parser) {
-		return function (source, index) {
-			if (source[index] == earlyEnding) return index + 1;
-			else return parser(source, index);
-		}
-	}
-
+	removeCommentsRx = /\/\*[\s\S]*?\*\/|\/\/.*?[\n\r]/g;
+	cleanDepsRx = /\s*["']\s*/g;
+	splitArgsRx = /\s*,\s*/;
 
 	/***** parsers *****/
-
-	// TODO: add advice to the parsers to collect module info
 
 	var parseGlobal, parseDefine, parseFactory;
 
@@ -85,15 +66,28 @@ define(function (require) {
 		{
 			// TODO: look only for valid module ids?
 			rx: /require\s*\(\s*["']([^"']+)["']\s*\)/g,
-			action: function () {/* TODO */}
+			action: before(
+				parser.resume,
+				[
+					assertModule,
+					function saveRequire (captures, source, index) {
+						var id = captures[0];
+						module.requires.push({
+							id: id,
+							pos: index,
+							count: id.length
+						});
+					}
+				]
+			)
 		},
-		{ rx: bCommentRx, action: subParser(skipToEndBComment) },
-		{ rx: lCommentRx, action: subParser(skipToEndLComment) },
-		{ rx: quoteRx, action: subParser(skipToEndQuote) },
-		{ rx: dblQuoteRx, action: subParser(skipToEndDblQuote) },
-		{ rx: regexpRx, action: skipRegExp },
+		js.blockComment,
+		js.lineComment,
+		js.quotedString,
+		js.dblQuotedString,
+		js.regExp,
 		// find end of factory function
-		{ rx: /(\{)|(\})/, action: countdown(1, '{') }
+		{ rx: /(\{)|(\})/, action: countdown('{', '}', exit, 1) }
 	]);
 
 	parseDefine = parser([
@@ -101,13 +95,33 @@ define(function (require) {
 			// id (with comma)
 			// TODO: look only for valid module ids?
 			rx: /(?:["']([^"']*)["']\s*,)/,
-			action: function () {/* TODO */}
+			action: before(
+				parser.resume,
+				[
+					assertModule,
+					function saveId (captures, source, index, nextIndex) {
+						module.id = captures[0];
+						module.count = nextIndex - module.pos;
+					}
+				]
+			)
 		},
 		{
 			// deps array (with comma)
 			// TODO: look only for valid module ids?
 			rx: /(?:\[([^\]]*?)\]\s*,)/,
-			action: function () {/* TODO */}
+			action: before(
+				parser.resume,
+				[
+					assertModule,
+					function saveDeps (captures, source, index, nextIndex) {
+						module.depList = captures[0].replace(removeCommentsRx, '')
+							.replace(cleanDepsRx, '')
+							.split(splitArgsRx);
+						module.count = nextIndex - module.pos;
+					}
+				]
+			)
 		},
 		{
 			// find "function name? (args?) {" OR "{"
@@ -115,15 +129,32 @@ define(function (require) {
 			// from lodash from capturing an extra quote:
 			// `'function(' + x + ') {\n'`
 			rx: /(?:(function)\s*[0-9a-zA-Z_$]*\s*\(([^)'"]*)\))?\s*\{/,
-			action: subParser(parseFactory)
+			action: before(
+				subParser(parseFactory),
+				[
+					assertModule,
+					function saveFactory (captures, source, index, nextIndex) {
+						module.factory = !!captures[0]; // factory function?
+						module.argList = captures[1].replace(removeCommentsRx, '').split(splitArgsRx);
+						module.count = nextIndex - module.pos;
+					}
+				]
+			)
 		},
-		{ rx: bCommentRx, action: subParser(skipToEndBComment) },
-		{ rx: lCommentRx, action: subParser(skipToEndLComment) },
-		{ rx: quoteRx, action: subParser(skipToEndQuote) },
-		{ rx: dblQuoteRx, action: subParser(skipToEndDblQuote) },
-		{ rx: regexpRx, action: skipRegExp },
-		// find end of define()
-		{ rx: /(\()|(\))/, action: countdown(1, '(') }
+		js.blockComment,
+		js.lineComment,
+		js.quotedString,
+		js.dblQuotedString,
+		js.regExp,
+		// find end of define(), typically after factory is [sub]parsed
+		{
+			rx: /(\()|(\))/,
+			action: countdown(
+				'(', ')',
+				before(exit, function endModule () { module = null; }),
+				1
+			)
+		}
 	]);
 
 	parseGlobal = parser([
@@ -131,34 +162,61 @@ define(function (require) {
 			// global "define("
 			// TODO: don't match on foo.define(
 			rx: /(\bdefine)\s*\(/,
-			action: subParser(parseDefine)
+			action: before(
+				subParser(parseDefine),
+				[
+					refuteModule,
+					function startModule (captures, source, index, nextIndex) {
+						module = {
+							pos: index,
+							count: nextIndex - index,
+							requires: []
+						};
+					}
+				]
+			)
 		},
-		{ rx: bCommentRx, action: subParser(skipToEndBComment) },
-		{ rx: lCommentRx, action: subParser(skipToEndLComment) },
-		{ rx: quoteRx, action: subParser(skipToEndQuote) },
-		{ rx: dblQuoteRx, action: subParser(skipToEndDblQuote) },
-		{ rx: regexpRx, action: skipRegExp }
+		js.blockComment,
+		js.lineComment,
+		js.quotedString,
+		js.dblQuotedString,
+		js.regExp,
 	]);
 
 
+	/***** export *****/
+
+	return scanAmd;
+
 	/***** other stuff *****/
 
-	function countdown (start, upMatch) {
-		var count = start || 0;
-		return function (captures) {
-			// TODO: check all captures for multiple upMatch and dnMatch
-			count += captures[0] == upMatch ? 1 : -1;
-			return count == 0;
-		}
+	function assertModule (captures, source, index, nextIndex) {
+		if (!module) throw new Error('Module declaration missing at file position ' + index);
 	}
 
-	function subParser (subParser) {
-		return function (captures, source, index) {
-			return subParser(source, index);
+	function refuteModule (captures, source, index, nextIndex) {
+		if (module) throw new Error('Duplicate module declaration found at file position ' + index);
+	}
+
+	function before (func, advice) {
+		return function () {
+			var args = arguments;
+			if (!Array.isArray(advice)) advice = [advice];
+			advice.forEach(function (a) { a.apply(args); });
+			return func.apply(this, arguments);
 		};
 	}
 
-	return scanAmd;
+/*
+	function after (func, advice) {
+		return function () {
+			var result;
+			result = func.apply(this, arguments);
+			advice.apply(this, [result]);
+			return result;
+		};
+	}
+*/
 
 });
 }(
