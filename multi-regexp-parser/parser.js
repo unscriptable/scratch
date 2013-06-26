@@ -10,11 +10,11 @@ define(function (require) {
 	 * @param {Array} descriptors - an array of pattern-action descriptors.
 	 *   Each is an object with an `rx` property (RegExp) and an `action`
 	 *   property.  When the RegExp matches a pattern, the action is called.
-	 *   `action` will receive three arguments: (1) an array of the captured
+	 *   `action` will receive four arguments: (1) an array of the captured
 	 *   text, one array item for each set of parentheses in the RegExp;
-	 *   (2) the original source string; (3) the index at the next point in
-	 *   the source string to resume parsing (one char ahead of the last
-	 *   match).
+	 *   (2) the original source string; (3) this index where the matched
+	 *   pattern was found, (4) the index at the next point in the source
+	 *   string to resume parsing (one char ahead of the matched pattern).
 	 * @return {Function} - parsing function that takes a source string and an
 	 *   optional starting index.
 	 */
@@ -53,30 +53,71 @@ define(function (require) {
 			end = false;
 			while (!end && (captures = comboRx.exec(source))) {
 				nextIndex = captures.index + 1;
-				result = callFirstAction(captures, source, nextIndex);
+				result = callFirstAction(captures, source, comboRx.lastIndex, nextIndex);
 				// action returns `exitFlag` to abort at current index
 				if (result == exitFlag) break;
 				// action returns a number to skip ahead
-				else if (result > 0) comboRx.lastIndex = result;
+				else if (parseInt(result, 10) > 0) comboRx.lastIndex = result;
 			}
 			return comboRx.lastIndex;
 		};
 
-		function callFirstAction (captures, source, nextIndex) {
+		function callFirstAction (captures, source, index, nextIndex) {
 			var i, capture;
 			i = 0;
 			// find the first matched capture and call its action
 			while (i < captures.length) {
 				capture = captures[i];
 				if (typeof capture != 'undefined') {
-					return actions[i](captures, source, nextIndex);
+					return actions[i](captures, source, index, nextIndex);
 				}
 			}
 		}
 	}
 
+	// common actions
+
+	/**
+	 * This action will exit a parser.
+	 */
 	parser.exit = function () { return false; };
-	parser.resume = function () { };
+
+	/**
+	 * This action will resume a parser (noop).
+	 */
+	parser.resume = function () { /*return undefined;*/ };
+
+	/**
+	 * Creates an action that is a sub-parser. When the sub-parser exits, it
+	 * returns the index at which the parent parser will resume parsing.
+	 * @param {Function} subParser
+	 * @return {Function} action
+	 */
+	parser.subParser = function (subParser) {
+		return function (captures, source, index, nextIndex) {
+			return subParser(source, nextIndex);
+		};
+	};
+
+	/**
+	 * Creates a countdown action that performs an action when a counter reaches
+	 * zero. The counter increments when upMatch is captured and decrements
+	 * when dnMatch is captured.
+	 * @param {String} upMatch
+	 * @param {String} dnMatch
+	 * @param {Function} finalAction
+	 * @param {Number} [startVal]
+	 * @return {Function} action
+	 */
+	parser.counter = function (upMatch, dnMatch, finalAction, startVal) {
+		var count = startVal || 0;
+		return function (captures) {
+			count = captures.reduce(function (c, m) {
+				return c + (m == upMatch ? 1 : m == dnMatch ? -1 : 0);
+			}, count);
+			return count == 0 ? finalAction : parser.resume;
+		}
+	};
 
 	return parser;
 
