@@ -7,44 +7,45 @@ define(function (require) {
 	amd = require('../descriptor/amd');
 	parser = require('../parser');
 
-	var parseFactory, parseDefine, parseGlobal;
+	return function () {
+		var parseFactory, parseDefine, parseAmd;
 
-	parseFactory = parser([
-		amd.syncRequire,
-		amd.factoryEnd,
-		js.blockComment,
-		js.lineComment,
-		js.quotedString,
-		js.dblQuotedString,
-		js.regExp
-	]);
+		parseFactory = parser([
+			amd.syncRequire,
+			amd.factoryEnd,
+			js.blockComment,
+			js.lineComment,
+			js.quotedString,
+			js.dblQuotedString,
+			js.regExp
+		]);
 
-	parseDefine = parser([
-		amd.moduleId,
-		amd.depsList,
-		amd.factoryStart,
-		amd.defineEnd,
-		js.blockComment,
-		js.lineComment,
-		js.quotedString,
-		js.dblQuotedString,
-		js.regExp
-	]);
+		parseDefine = parser([
+			amd.moduleId,
+			amd.depsList,
+			amd.factoryStart,
+			amd.defineEnd,
+			js.blockComment,
+			js.lineComment,
+			js.quotedString,
+			js.dblQuotedString,
+			js.regExp
+		]);
 
-	parser.mergeSubParser(parseDefine, parseFactory, 'parseFactory');
+		parser.mergeSubParser(parseDefine, parseFactory, 'parseFactory');
 
-	parseGlobal = parser([
-		amd.defineStart,
-		js.blockComment,
-		js.lineComment,
-		js.quotedString,
-		js.dblQuotedString,
-		js.regExp
-	]);
+		// global parser
+		parseAmd = parser([
+			amd.defineStart,
+			js.blockComment,
+			js.lineComment,
+			js.quotedString,
+			js.dblQuotedString,
+			js.regExp
+		]);
 
-	parser.mergeSubParser(parseGlobal, parseDefine, 'defineStart');
-
-	return parseGlobal;
+		return parser.mergeSubParser(parseAmd, parseDefine, 'defineStart');
+	};
 
 });
 }(

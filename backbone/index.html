@@ -1,0 +1,59 @@
+<html>
+<head>
+<title>backbone test</title>
+<script src="../curl/src/curl.js" ></script>
+<script>
+
+var cjsmCfg, config;
+
+// this syntax will change in 0.8, just fyi.
+cjsmCfg = { moduleLoader: 'curl/loader/cjsm11' };
+
+config = {
+	baseUrl: '',
+	paths: {
+		// your paths may vary, of course
+		'curl': '../curl/src/curl',
+		'jquery': 'lib/jquery-1.8.2.min',
+		'lodash': 'lib/lodash-0.9.2',
+		'underscore': 'lib/lodash-0.9.2' // tricksy!
+		// this would be nice, but won't be ready until 0.7.3 or 0.7.4:
+		//'backbone': { location: 'lib/backbone-0.9.2', config: cjsmCfg }
+		// in 0.8, it could look like this:
+		//'backbone': { location: 'lib/backbone-0.9.2', transform: 'curl/cjsm11' }
+	},
+	packages: [
+		// for now, only packages allow "local" configs
+		{ name: 'backbone', location: 'lib', main: 'backbone-0.9.2', config: cjsmCfg }
+	],
+	// backbone doesn't look for jquery using cjsm's require(), so we have to
+	// ensure that it's preloaded:
+	preloads: ['jquery']
+};
+
+// this looks cleaner!
+curl(config, ['jquery', 'lodash', 'backbone'], init, error);
+
+function init ($, _, Backbone) {
+    console.log('$', $);
+    console.log('_', _);
+    console.log('Backbone', Backbone);
+
+    var Test = Backbone.View.extend({
+        initialize: function(){
+            alert(123);
+        }
+    });
+
+    new Test();
+}
+
+function error (err) {
+    console.warn(err);
+}
+</script>
+</head>
+<body>
+hi
+</body>
+</html>
